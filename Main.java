@@ -30,48 +30,72 @@ public class Main {
 
             if (!verifyPassword(enteredPassword.toCharArray(), salt, token)) {
                 System.out.println("Incorrect password. Access denied. ");
+            } else {
+                while (true) {
+                    System.out.println("Do you want to add a password(A), read a password(R), or quit(Q)");
+                    String function = scanner.nextLine();
+                    if (function.equals("A")) {
+                        System.out.println("(A): Add a Password");
+                        System.out.println("Please provide a password label:");
+                        String label = scanner.nextLine();
+                        System.out.println("Please provide a password:");
+                        String password = scanner.nextLine();
+                        // add password here
+                    } else if (function.equals("R")) {
+                        System.out.println("(R): Read a Password");
+                        System.out.println("Enter the label of the password you would like to see:");
+                        String label = scanner.nextLine();
+                        // read out password
+                    } else if (function.equals("Q")) {
+                        System.out.println("Quitting Manager...");
+                        System.exit(0);
+                    } else {
+                        System.out.println("Not a valid command.");
+                    }
+                }}
             }
-            else{
-                System.out.println("correct password. ");
-            }
-        } else {
-            // Password file does not exist, prompt for initial password
-            System.out.println("No password file found. Enter an initial password: ");
-            String initialPassword = scanner.nextLine();
-            try{
-                String salt = generateSalt();
-                String token = hashPassword(initialPassword.toCharArray(), Base64.getDecoder().decode(salt));
+        else{
+                // Password file does not exist, prompt for initial password
+                System.out.println("No password file found. Enter an initial password: ");
+                String initialPassword = scanner.nextLine();
+                try {
+                    String salt = generateSalt();
+                    String token = hashPassword(initialPassword.toCharArray(), Base64.getDecoder().decode(salt));
 
-                createPasswordFile(salt, token);
-            } catch (Exception e) {
-                e.printStackTrace();
+                    createPasswordFile(salt, token);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
-    }
 
-    private static boolean verifyPassword(char[] enteredPassword, String storedSalt, String storedToken) throws Exception {
-        String hashedEnteredPassword = hashPassword(enteredPassword, Base64.getDecoder().decode(storedSalt));
-        return hashedEnteredPassword.equals(storedToken);
-    }
 
-    private static void createPasswordFile(String salt, String token) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(PASSWORD_FILE));
-        writer.write(salt + ":" + token);
-        writer.newLine();
-        writer.close();
-    }
+            private static boolean verifyPassword ( char[] enteredPassword, String storedSalt, String storedToken) throws Exception {
+                String hashedEnteredPassword = hashPassword(enteredPassword, Base64.getDecoder().decode(storedSalt));
+                return hashedEnteredPassword.equals(storedToken);
+            }
 
-    private static String generateSalt() {
-        SecureRandom random = new SecureRandom();
-        byte[] salt = new byte[16];
-        random.nextBytes(salt);
-        return Base64.getEncoder().encodeToString(salt);
-    }
+            private static void createPasswordFile (String salt, String token) throws IOException {
+                BufferedWriter writer = new BufferedWriter(new FileWriter(PASSWORD_FILE));
+                writer.write(salt + ":" + token);
+                writer.newLine();
+                writer.close();
+            }
 
-    private static String hashPassword(char[] password, byte[] salt) throws Exception {
-        PBEKeySpec spec = new PBEKeySpec(password, salt, 600000, 128);
-        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        byte[] hash = factory.generateSecret(spec).getEncoded();
-        return Base64.getEncoder().encodeToString(hash);
-    }
-}
+            private static String generateSalt () {
+                SecureRandom random = new SecureRandom();
+                byte[] salt = new byte[16];
+                random.nextBytes(salt);
+                return Base64.getEncoder().encodeToString(salt);
+            }
+
+            private static String hashPassword ( char[] password, byte[] salt) throws Exception {
+                PBEKeySpec spec = new PBEKeySpec(password, salt, 600000, 128);
+                SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+                byte[] hash = factory.generateSecret(spec).getEncoded();
+                return Base64.getEncoder().encodeToString(hash);
+
+
+            }
+        }
+
