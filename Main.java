@@ -6,6 +6,11 @@ import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Scanner;
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.spec.IvParameterSpec;
+import java.util.Map;
+import java.util.HashMap;
 
 public class Main {
 
@@ -40,12 +45,13 @@ public class Main {
                         String label = scanner.nextLine();
                         System.out.println("Please provide a password:");
                         String password = scanner.nextLine();
-                        // add password here
+                        addPassword(enteredPassword, label, password, null);
                     } else if (function.equals("R")) {
                         System.out.println("(R): Read a Password");
                         System.out.println("Enter the label of the password you would like to see:");
                         String label = scanner.nextLine();
-                        // read out password
+                        String password = readPassword(enteredPassword, label, null);
+                        System.out.println(password);
                     } else if (function.equals("Q")) {
                         System.out.println("Quitting Manager...");
                         System.exit(0);
@@ -94,8 +100,66 @@ public class Main {
                 SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
                 byte[] hash = factory.generateSecret(spec).getEncoded();
                 return Base64.getEncoder().encodeToString(hash);
-
-
             }
-        }
+
+            private static SecretKeySpec getPassKey(char[] password) throws Exception {
+                byte[] salt = "123456789112345".getBytes();
+                PBEKeySpec spec = new PBEKeySpec(password, salt, 600000, 128);
+                SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+                byte[] bytes = factory.generateSecret(spec).getEncoded();
+                return new SecretKeySpec(bytes, "AES");
+            }
+
+            private static IvParameterSpec generateIv() {
+                byte[] iv = new byte[16];
+                new SecureRandom().nextBytes(iv);
+                return new IvParameterSpec(iv);
+            }
+        
+            private static void addPassword(String mainPassword, String label, String password, Map<String, String> allPasswords) throws Exception {
+                SecretKeySpec key = getPassKey(mainPassword.toCharArray());
+                IvParameterSpec iv = generateIv();
+                String encryption = encryptPassword(password, key, iv);
+                allPasswords.put(label, encryption + ":" + Base64.getEncoder().encodeToString(iv.getIV()));
+                writeFile(allPasswords);
+            }
+
+            private static String readPassword(String mainPassword, String label, Map<String, String> allPasswords) throws Exception {
+                if(allPasswords.containsKey(label)) {
+                    String[] data = allPasswords.get(label).split(":");
+                    String encryption = data[0];
+                    byte[] iv = Base64.getDecoder().decode(data[1]);
+                    SecretKeySpec key = getPassKey(mainPassword.toCharArray());
+                    return decryptPassword(encryption, key, new IvParameterSpec(iv));
+                }
+                else {
+                    return "No password found for that label.";
+                }
+            }
+
+            private static String encryptPassword(String password, SecretKeySpec key, IvParameterSpec iv) throws Exception {
+                Cipher cipher = Cipher.getInstance(PASSWORD_FILE);
+                cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+                byte[] encryption = cipher.doFinal(password.getBytes());
+                return Base64.getEncoder().encodeToString(encryption);
+            }
+
+            private static String decryptPassword(String encryption, SecretKeySpec key, IvParameterSpec iv) throws Exception {
+                Cipher cipher = Cipher.getInstance(PASSWORD_FILE);
+                cipher.init(Cipher.DECRYPT_MODE, key, iv);
+                byte[] decryption = cipher.doFinal(Base64.getDecoder().decode(encryption));
+                return new String(decryption);
+            }
+
+            private static void writeFile(Map<String, String> allPasswords) throws IOException {
+                BufferedWriter fileWriter = new BufferedWriter(new FileWriter(PASSWORD_FILE));
+                for(Map.Entry<String, String> entry:allPasswords.entrySet()) {
+                    fileWriter.write(entry.getKey() + ":" + entry.getValue());
+                    fileWriter.newLine();
+                }
+                fileWriter.close();
+            }
+
+
+    }
 
