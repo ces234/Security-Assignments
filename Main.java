@@ -9,8 +9,6 @@ import java.util.Scanner;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
-import java.util.Map;
-import java.util.HashMap;
 
 public class Main {
 
@@ -45,12 +43,12 @@ public class Main {
                         String label = scanner.nextLine();
                         System.out.println("Please provide a password:");
                         String password = scanner.nextLine();
-                        addPassword(enteredPassword, label, password, null);
+                        addPassword(enteredPassword, label, password);
                     } else if (function.equals("R")) {
                         System.out.println("(R): Read a Password");
                         System.out.println("Enter the label of the password you would like to see:");
                         String label = scanner.nextLine();
-                        String password = readPassword(enteredPassword, label, null);
+                        String password = readPassword(enteredPassword, label);
                         System.out.println(password);
                     } else if (function.equals("Q")) {
                         System.out.println("Quitting Manager...");
@@ -116,48 +114,45 @@ public class Main {
                 return new IvParameterSpec(iv);
             }
         
-            private static void addPassword(String mainPassword, String label, String password, Map<String, String> allPasswords) throws Exception {
+            private static void addPassword(String mainPassword, String label, String password) throws Exception {
                 SecretKeySpec key = getPassKey(mainPassword.toCharArray());
                 IvParameterSpec iv = generateIv();
                 String encryption = encryptPassword(password, key, iv);
-                allPasswords.put(label, encryption + ":" + Base64.getEncoder().encodeToString(iv.getIV()));
-                writeFile(allPasswords);
+                BufferedWriter writer = new BufferedWriter(new FileWriter(PASSWORD_FILE, true));
+                writer.write(label + ":" + encryption + ":" + Base64.getEncoder().encodeToString(iv.getIV()));
+                writer.newLine();
+                writer.close();
+            
             }
 
-            private static String readPassword(String mainPassword, String label, Map<String, String> allPasswords) throws Exception {
-                if(allPasswords.containsKey(label)) {
-                    String[] data = allPasswords.get(label).split(":");
-                    String encryption = data[0];
-                    byte[] iv = Base64.getDecoder().decode(data[1]);
-                    SecretKeySpec key = getPassKey(mainPassword.toCharArray());
-                    return decryptPassword(encryption, key, new IvParameterSpec(iv));
+            private static String readPassword(String mainPassword, String label) throws Exception {
+                BufferedReader reader = new BufferedReader(new FileReader(PASSWORD_FILE));
+                String line;
+                SecretKeySpec key = getPassKey((mainPassword.toCharArray()));
+                while((line = reader.readLine()) != null) {
+                    String[] segment = line.split(":");
+                    if(segment.length == 3 && segment[0].equals(label)) {
+                        String encryption = segment[1];
+                        byte[] iv = Base64.getDecoder().decode(segment[2]);
+                        return decryptPassword((encryption), key, new IvParameterSpec(iv));
+                    }
                 }
-                else {
-                    return "No password found for that label.";
-                }
+                reader.close();
+                return "No password found using that label.";
             }
 
             private static String encryptPassword(String password, SecretKeySpec key, IvParameterSpec iv) throws Exception {
-                Cipher cipher = Cipher.getInstance(PASSWORD_FILE);
+                Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
                 cipher.init(Cipher.ENCRYPT_MODE, key, iv);
                 byte[] encryption = cipher.doFinal(password.getBytes());
                 return Base64.getEncoder().encodeToString(encryption);
             }
 
             private static String decryptPassword(String encryption, SecretKeySpec key, IvParameterSpec iv) throws Exception {
-                Cipher cipher = Cipher.getInstance(PASSWORD_FILE);
+                Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
                 cipher.init(Cipher.DECRYPT_MODE, key, iv);
                 byte[] decryption = cipher.doFinal(Base64.getDecoder().decode(encryption));
                 return new String(decryption);
-            }
-
-            private static void writeFile(Map<String, String> allPasswords) throws IOException {
-                BufferedWriter fileWriter = new BufferedWriter(new FileWriter(PASSWORD_FILE));
-                for(Map.Entry<String, String> entry:allPasswords.entrySet()) {
-                    fileWriter.write(entry.getKey() + ":" + entry.getValue());
-                    fileWriter.newLine();
-                }
-                fileWriter.close();
             }
 
 
